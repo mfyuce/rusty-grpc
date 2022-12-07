@@ -6,9 +6,17 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-prost = "0.10.4"
-tokio = { version = "1.19.2", features = ["macros", "rt-multi-thread"] }
-tonic = "0.7.2"
+prost = "0.11.3"
+tokio = { version = "1.22.0", features = ["macros", "rt-multi-thread"] }
+tonic = "0.8.3"
+prost-types = "0.11.2"
+tokio-stream = "0.1.11"
+futures = "0.3.25"
+retry = "2.0.0"
+redis-async-pool = "0.2.4"
+lazy_static = "1.4.0"
+redis = "0.17"
+thread_local = "1.1.4"
 
 [build-dependencies]
-tonic-build = "0.7.2"
+tonic-build = "0.8.4"
