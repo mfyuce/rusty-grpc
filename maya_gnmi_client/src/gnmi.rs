@@ -859,7 +859,7 @@ pub mod g_nmi_server {
             &self,
             request: tonic::Request<super::SetRequest>,
         ) -> Result<tonic::Response<super::SetResponse>, tonic::Status>;
-        fn new() -> Self;
+        fn new(redis_url:String) -> Self;
     }
     #[derive(Debug)]
     pub struct GNmiServer<T: GNmi> {

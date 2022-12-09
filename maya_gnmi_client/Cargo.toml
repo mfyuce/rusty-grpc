@@ -1,5 +1,5 @@
 [package]
-name = "server"
+name = "maya_gnmi_client"
 version = "0.1.0"
 edition = "2021"
 
@@ -7,7 +7,7 @@ edition = "2021"
 
 [dependencies]
 prost = "0.11.3"
-tokio = { version = "1.22.0", features = ["macros", "rt-multi-thread"] }
+tokio = { version = "1.22.0", features = ["macros", "rt-multi-thread","full"] }
 tonic = "0.8.3"
 prost-types = "0.11.2"
 tokio-stream = "0.1.11"
@@ -15,8 +15,10 @@ futures = "0.3.25"
 retry = "2.0.0"
 redis-async-pool = "0.2.4"
 lazy_static = "1.4.0"
-redis = "0.17"
+redis = { version = "0.17", features = ["tokio-comp"] } # "json"
 thread_local = "1.1.4"
+log = "0.4.17"
+simplelog = "0.12.0"
 
 [build-dependencies]
 tonic-build = "0.8.4"
