@@ -37,7 +37,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // let start = Instant::now();
     let mut list: Vec<JoinHandle<()>> = Vec::new();
 
-    for i in 1..100 {
+    for i in 1..10 {
         let mut handle = tokio::spawn (  async move {
 
             let mut client_and_error = GNmiClient::connect("http://[::1]:8080").await;

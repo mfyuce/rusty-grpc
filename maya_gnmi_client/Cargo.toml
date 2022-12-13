@@ -13,12 +13,12 @@ prost-types = "0.11.2"
 tokio-stream = "0.1.11"
 futures = "0.3.25"
 retry = "2.0.0"
-redis-async-pool = "0.2.4"
 lazy_static = "1.4.0"
-redis = { version = "0.17", features = ["tokio-comp"] } # "json"
+redis = { version = "0.22.1", features = ["tokio-comp","json","r2d2","connection-manager"] }
 thread_local = "1.1.4"
 log = "0.4.17"
 simplelog = "0.12.0"
+r2d2_redis = "0.14.0"
 
 [build-dependencies]
 tonic-build = "0.8.4"

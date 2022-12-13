@@ -825,9 +825,10 @@ pub mod g_nmi_client {
 pub mod g_nmi_server {
     #![allow(unused_variables, dead_code, missing_docs, clippy::let_unit_value)]
 
+    use r2d2_redis::RedisConnectionManager;
     use redis::{Client, RedisError};
-    use redis_async_pool::{RedisConnection, RedisConnectionManager, RedisPool};
-    use redis_async_pool::deadpool::managed::Pool;
+    // use redis_async_pool::{RedisConnection, RedisConnectionManager, RedisPool};
+    // use redis_async_pool::deadpool::managed::Pool;
     use tonic::codegen::*;
     /// Generated trait containing gRPC methods that should be implemented for use with GNmiServer.
     #[async_trait]
@@ -859,7 +860,7 @@ pub mod g_nmi_server {
             &self,
             request: tonic::Request<super::SetRequest>,
         ) -> Result<tonic::Response<super::SetResponse>, tonic::Status>;
-        fn new(redis_url:String) -> Self;
+        fn new(redis_url:String,pool:r2d2_redis::r2d2::Pool<RedisConnectionManager>) -> Self;
     }
     #[derive(Debug)]
     pub struct GNmiServer<T: GNmi> {
