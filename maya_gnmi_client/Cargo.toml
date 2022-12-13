@@ -15,7 +15,6 @@ futures = "0.3.25"
 retry = "2.0.0"
 lazy_static = "1.4.0"
 redis = { version = "0.22.1", features = ["tokio-comp","json","r2d2","connection-manager"] }
-thread_local = "1.1.4"
 log = "0.4.17"
 simplelog = "0.12.0"
 r2d2_redis = "0.14.0"
