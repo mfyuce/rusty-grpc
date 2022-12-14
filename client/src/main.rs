@@ -1,4 +1,4 @@
-#![feature(async_closure)]
+// #![feature(async_closure)]
 #[macro_use] extern crate log;
 extern crate simplelog;
 mod gnmi;
@@ -11,13 +11,10 @@ use std::{env, thread};
 use std::time::{Duration, Instant};
 use log::{debug, error, info, LevelFilter, warn};
 use redis::aio::ConnectionManager;
-// use r2d2_redis::r2d2::ManageConnection;
-// use r2d2_redis::RedisConnectionManager;
 use redis::{AsyncCommands, JsonCommands};
 use simplelog::{ColorChoice, CombinedLogger, Config, TerminalMode, TermLogger, WriteLogger};
 use tokio::task::JoinHandle;
 use tokio::time::sleep;
-// extern crate r2d2_redis;
 extern crate redis;
 use serde_json::json;
 use crate::redis::JsonAsyncCommands;
@@ -53,36 +50,59 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             None => DEFAULT_REDIS_SERVER_HOST_AND_PORT.to_string(),
         };
     let pool =  ConnectionManager::new(redis::Client::open(redis_url).unwrap()).await.unwrap();
-    for i in 1..10 {
+    // for i in 1..2 {
+    //     let tmp_pool = pool.clone();
+    //     let handle = tokio::spawn (  async move {
+    //         bulk_try_with_gnmi( ).await
+    //     });
+    //     list.push( handle);
+    // }
+
+    let mut cur_bucket_number_tmp = 0;
+    let mut cur_bucket_number = 0;
+    let mut err_cnt = 0;
+    let mut total_cnt = 0;
+    for n1 in 1..255 {
         let tmp_pool = pool.clone();
         let handle = tokio::spawn (  async move {
-            // bulk_try_with_gnmi( ).await
-            bulk_try_with_redis(tmp_pool.clone()).await
+            bulk_try_with_redis(n1,cur_bucket_number,tmp_pool.clone()).await
         });
+        cur_bucket_number_tmp+=254;
+        if cur_bucket_number_tmp >= 9000 {
+            // cur_bucket_number += 1;
+            cur_bucket_number_tmp = 0;
+        }
         list.push( handle);
     }
 
+    info!("total_cnt {}",total_cnt );
+    if err_cnt > 0 {
+        info!("err_cnt {}",err_cnt );
+    }
     while list.len() > 0 {
         let mut cur_thread = list.remove(0); // moves it into cur_thread
         cur_thread.await.unwrap();
     }
 
     for i in 1..5 {
-        println!("hi number {} from the main thread!", i);
+        info!("hi number {} from the main thread!", i);
         thread::sleep(Duration::from_millis(1));
     }
 
     Ok(())
 }
 
-async fn bulk_try_with_redis(mut pool: ConnectionManager) {
-    for n1 in 1..10{
-        for n2 in 2..254 {
-            let config_name =format!("config:192.168.{}.{}", n1 ,n2);
-            let res:String = pool.json_set(config_name,"$",&json!({"item": 42i32})).await.unwrap();
-            // let res:u32 = pool.del(config_name ).await.unwrap();
+async fn bulk_try_with_redis(n1: i32, cur_bucket_number: i32, mut pool: ConnectionManager) {
+    for n2 in 1..254{
+        let config_name =format!("maya_config_{}:192.168.{}.{}",cur_bucket_number, n1 ,n2);
+        // let res:String = pool.set(config_name.clone(),"").await.unwrap();
+        let res:String = pool.json_set(config_name,"$",&json!({"cfg": {}})).await.unwrap();
+        // let res:u32 = pool.del(config_name ).await.unwrap();
+         if res != "OK" {
+            info!("{}",res );
         }
     }
+
 }
 
 async fn bulk_try_with_gnmi() {
@@ -104,7 +124,7 @@ async fn bulk_try_with_gnmi() {
             //     cnt_period.store(0, Ordering::Relaxed);
             //     println!("{}/{}/{:?}/", cnt.load(Ordering::Relaxed), cnt.load(Ordering::Relaxed) / (if duration > 0 { duration } else { 1 }), duration);
             // }
-            let _ = sleep(Duration::from_nanos(1));
+            // let _ = sleep(Duration::from_nanos(1));
         }
     } else {
         error!("version: {}", client_and_error.err().unwrap());
