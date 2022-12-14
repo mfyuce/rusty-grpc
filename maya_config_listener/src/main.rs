@@ -21,10 +21,12 @@ use redis::{PubSubCommands, ControlFlow, AsyncCommands, JsonCommands, RedisResul
 use simplelog::{ColorChoice, CombinedLogger, Config, TerminalMode, TermLogger, WriteLogger};
 use crate::gnmi::g_nmi_client::GNmiClient;
 use std::collections::HashMap;
-use tokio::time::sleep;
+use std::thread::sleep;
+// use tokio::time::sleep;
 use tonic::codegen::ok;
 extern crate redis;
 use serde_json::json;
+use tonic::transport::Channel;
 use crate::redis::JsonAsyncCommands;
 
 const DEFAULT_GNMI_SERVER_HOST_AND_PORT: &str = "[::]:8080";
@@ -35,7 +37,7 @@ const TEXT_REDIS_SERVER_HOST_AND_PORT: &'static str = "REDIS_SERVER_HOST_AND_POR
 /*
 CONFIG SET notify-keyspace-events KEAm
 */
-#[tokio::main(flavor = "multi_thread", worker_threads = 3)]
+#[tokio::main(flavor = "multi_thread", worker_threads = 8)]
 async fn main() -> Result<(), Box<dyn Error>> {
     CombinedLogger::init(
         vec![
@@ -70,7 +72,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 let sub_and_result = pubsub.psubscribe("__keyspace@0__:maya_config_*:*");
                 if sub_and_result.is_ok() {
                     loop {
-                        let _ = sleep(Duration::from_nanos(1));
+                        // let _ = sleep(Duration::from_nanos(1));
                         let pubsub_msg_and_result = pubsub.get_message();
                         if pubsub_msg_and_result.is_ok() {
                             let msg = pubsub_msg_and_result.unwrap();
@@ -81,17 +83,17 @@ async fn main() -> Result<(), Box<dyn Error>> {
                                 if payload.eq("json.set") && !channel_name.contains(":inProgress") && !channel_name.contains("done") {
                                     cnt += 1;
                                     trace!("channel '{}': {}", channel_name, payload);
-                                    info!("cnt '{}' ", cnt);
+                                    // info!("cnt '{}' ", cnt);
                                     let tmp_redis_url1 = redis_url.clone();
                                     let tmp_pool1 = poolCM.clone();
                                     tokio::spawn(async move {
                                         push_one_configuration(tmp_redis_url1, tmp_pool1.clone(), channel_name).await;
                                     });
                                     cntTmp+=1;
-                                    if cntTmp > 1000 {
-                                        let _ = thread::sleep(Duration::from_millis(100));
-                                        cntTmp = 0;
-                                    }
+                                    // if cntTmp > 1000 {
+                                    // let _ = thread::sleep(Duration::from_millis(10));
+                                    //     cntTmp = 0;
+                                    // }
                                 }
                             } else {
                                 error!("Unable get a payload from redis message: {}, retrying {}",redis_url, payload_and_result.err().unwrap());
@@ -121,8 +123,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
 async fn push_one_configuration(tmp_redis_url: String, mut pool_b: ConnectionManager, channel_name: String) {
     let redis_url = tmp_redis_url.clone();
 
-    let _ = sleep(Duration::from_nanos(1));
-
     let config_name = str::replace(&*channel_name, "__keyspace@0__:", "");
     let config_name_tmp = config_name.clone();
 
@@ -130,7 +130,7 @@ async fn push_one_configuration(tmp_redis_url: String, mut pool_b: ConnectionMan
     // for i in 1..100 {
     //     ip = str::replace(&*config_name_tmp, &format!("maya_config_{}:", i), "");
     // }
-    let res_and_result: RedisResult<u32> = pool_b.set_nx(config_name + ":inProgress", format!("{}", SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis())).await;
+    let res_and_result: RedisResult<u32> = pool_b.set_nx(config_name.clone() + ":inProgress", format!("{}", SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis())).await;
     // let res_and_result: RedisResult<u32> = pool_b.json_set(config_name, "$.inProgress", &json!(true)).await;
     if res_and_result.is_ok()
     {
@@ -138,64 +138,83 @@ async fn push_one_configuration(tmp_redis_url: String, mut pool_b: ConnectionMan
         if res == 1 {// key is set
             //later change to ip:<gnmi_port> above
             let gnmi_server = "http://[::1]:8080";
-            let mut client_and_error = GNmiClient::connect(gnmi_server).await;
-            if client_and_error.is_ok() {
-                let mut client = client_and_error.unwrap();
-                // loop {
-                let update = Update {
-                    path: Option::from(Path {
-                        element: vec![],
-                        origin: "".to_string(),
-                        elem: vec![PathElem {
-                            name: "".to_string(),
-                            key: HashMap::from([("Norway".parse().unwrap(), "100".parse().unwrap()),
-                                ("Denmark".parse().unwrap(), "50".parse().unwrap()),
-                                ("Iceland".parse().unwrap(), "10".parse().unwrap())]),
-                        }],
-                        target: "".to_string(),
-                    }),
-                    value: None,
-                    val: None,
-                    duplicates: 0,
-                };
-                let request = tonic::Request::new(SetRequest {
-                    prefix: None,
-                    delete: vec![],
-                    replace: vec![],
-                    update: vec![update],
-                    extension: vec![],
-                });
-                let response_and_result = client.set(request).await;
+            let mut client:GNmiClient<Channel>;
+            let mut cnt_try = 0;
+            // let _ = tokio::time::sleep(Duration::from_nanos(1));
+            loop {
 
-                if response_and_result.is_ok() {
-                    let res_and_result: RedisResult<u32> = pool_b.set_nx(config_name_tmp.clone() + ":done", "true").await;
-                    // let res_and_result: RedisResult<u32> = pool_b.json_set(config_name_tmp.clone(), "$.done", &json!(true)).await;
-                    if res_and_result.is_ok() {
-                        let res = res_and_result.unwrap();
-                        if res != 1 {
-                            //if already done? there must be some problems in logic
-                            assert!(1 == 1)
-                        }
-                        // info!("finished setting config for gnmi server {}",gnmi_server);
+                let client_and_error = GNmiClient::connect(gnmi_server).await;
+                if client_and_error.is_ok() {
+                    client = client_and_error.unwrap();
+                    break;
+                }else {
+                    cnt_try +=1;
+                    if cnt_try > 10 {
+                        error!("gnmi connect error : {}", client_and_error.err().unwrap());
+                        remove_inprogress(&mut pool_b, config_name.clone(), gnmi_server).await;
+                        return ;//Err(());
                     }
-                } else {
-                    // try to unset in progress
-                    error!("Unable to get response from gnmi server {}, {} ",gnmi_server, response_and_result.err().unwrap());
-
-                    let res_and_result:RedisResult<String> = pool_b.del(config_name_tmp.clone() + ":inProgress").await;
-                    if !res_and_result.is_ok() {
-                        error!("Unable to delete key inProgress for  {}, {} ",gnmi_server, res_and_result.err().unwrap());
-                    }
+                    let _ = sleep(Duration::from_secs(10));
                 }
-
-                // let _ = sleep(Duration::from_nanos(1));
-                // }
-            } else {
-                error!("gnmi connect error : {}", client_and_error.err().unwrap());
             }
+
+            // loop {
+            let update = Update {
+                path: Option::from(Path {
+                    element: vec![],
+                    origin: "".to_string(),
+                    elem: vec![PathElem {
+                        name: "".to_string(),
+                        key: HashMap::from([("Norway".parse().unwrap(), "100".parse().unwrap()),
+                            ("Denmark".parse().unwrap(), "50".parse().unwrap()),
+                            ("Iceland".parse().unwrap(), "10".parse().unwrap())]),
+                    }],
+                    target: "".to_string(),
+                }),
+                value: None,
+                val: None,
+                duplicates: 0,
+            };
+            let request = tonic::Request::new(SetRequest {
+                prefix: None,
+                delete: vec![],
+                replace: vec![],
+                update: vec![update],
+                extension: vec![],
+            });
+            let response_and_result = client.set(request).await;
+            drop(client);
+
+            if response_and_result.is_ok() {
+                let res_and_result: RedisResult<u32> = pool_b.set_nx(config_name_tmp.clone() + ":done", "true").await;
+                // let res_and_result: RedisResult<u32> = pool_b.json_set(config_name_tmp.clone(), "$.done", &json!(true)).await;
+                if res_and_result.is_ok() {
+                    let res = res_and_result.unwrap();
+                    if res != 1 {
+                        //if already done? there must be some problems in logic
+                        assert!(1 == 1)
+                    }
+                    // info!("finished setting config for gnmi server {}",gnmi_server);
+                }
+            } else {
+                // try to unset in progress
+                error!("Unable to get response from gnmi server {}, {} ",gnmi_server, response_and_result.err().unwrap());
+
+                remove_inprogress(&mut pool_b, config_name_tmp, gnmi_server).await;
+            }
+
+            // let _ = sleep(Duration::from_nanos(1));
+            // }
         }
     } else {
         //go for the next
+    }
+}
+
+async fn remove_inprogress(pool_b: &mut ConnectionManager, config_name_tmp: String, gnmi_server: &str) {
+    let res_and_result: RedisResult<u32> = pool_b.del(config_name_tmp.clone() + ":inProgress").await;
+    if !res_and_result.is_ok() {
+        error!("Unable to delete key inProgress for  {}, {} ",gnmi_server, res_and_result.err().unwrap());
     }
 }
 

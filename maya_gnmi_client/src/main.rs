@@ -29,7 +29,7 @@ use tonic::codegen::ok;
 const DEFAULT_GNMI_SERVER_HOST_AND_PORT: &str = "[::]:8080";
 const TEXT_GNMI_SERVER_HOST_AND_PORT: &'static str = "GNMI_SERVER_HOST_AND_PORT";
 
-#[tokio::main(flavor = "current_thread")] //, worker_threads = 1
+#[tokio::main(flavor = "multi_thread", worker_threads = 2)] //
 async fn main() -> Result<(), Box<dyn Error>> {
     CombinedLogger::init(
         vec![
@@ -118,7 +118,7 @@ impl GnmiService {
     fn stats(&self) {
         self.cnt.fetch_add(1, Ordering::Relaxed);
         self.cnt_period.fetch_add(1, Ordering::Relaxed);
-        if self.cnt_period.load(Ordering::Relaxed) == 1000 {
+        if self.cnt_period.load(Ordering::Relaxed) == 10000 {
             let duration = self.start.elapsed().as_secs();
             self.cnt_period.store(0, Ordering::Relaxed);
             info!("{}/{}/{:?}/", self.cnt.load(Ordering::Relaxed), self.cnt.load(Ordering::Relaxed) / (if duration > 0 { duration } else { 1 }), duration);

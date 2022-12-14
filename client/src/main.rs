@@ -62,10 +62,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut cur_bucket_number = 0;
     let mut err_cnt = 0;
     let mut total_cnt = 0;
-    for n1 in 1..255 {
+    for n1 in 1..16 {
         let tmp_pool = pool.clone();
         let handle = tokio::spawn (  async move {
-            bulk_try_with_redis(n1,cur_bucket_number,tmp_pool.clone()).await
+            for n2 in 1..255 {
+                bulk_try_with_redis(n1,n2, cur_bucket_number, tmp_pool.clone()).await
+            }
         });
         cur_bucket_number_tmp+=254;
         if cur_bucket_number_tmp >= 9000 {
@@ -92,9 +94,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-async fn bulk_try_with_redis(n1: i32, cur_bucket_number: i32, mut pool: ConnectionManager) {
-    for n2 in 1..254{
-        let config_name =format!("maya_config_{}:192.168.{}.{}",cur_bucket_number, n1 ,n2);
+async fn bulk_try_with_redis(n1: i32,n2: i32, cur_bucket_number: i32, mut pool: ConnectionManager) {
+    for n3 in 1..254{
+        let config_name =format!("maya_config_{}:192.{}.{}.{}",cur_bucket_number, n1 ,n2,n3);
         // let res:String = pool.set(config_name.clone(),"").await.unwrap();
         let res:String = pool.json_set(config_name,"$",&json!({"cfg": {}})).await.unwrap();
         // let res:u32 = pool.del(config_name ).await.unwrap();
